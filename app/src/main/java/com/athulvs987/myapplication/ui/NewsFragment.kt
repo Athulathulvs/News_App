@@ -1,57 +1,123 @@
 package com.athulvs987.myapplication.ui
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.fragment.app.Fragment
-import com.athulvs987.myapplication.ARG_PARAM1
-import com.athulvs987.myapplication.ARG_PARAM2
-import com.athulvs987.myapplication.R
+import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.RecyclerView.OnScrollListener
+import androidx.recyclerview.widget.RecyclerView.VISIBLE
+import com.athulvs987.myapplication.api.RetrofitInstance
+import com.athulvs987.myapplication.databinding.FragmentNewsBinding
+import com.athulvs987.myapplication.databinding.LayoutErrorBinding
+import com.athulvs987.myapplication.model.newsModel.NewsResponce
+import com.athulvs987.myapplication.presenter.NewsPresenter
+import com.athulvs987.myapplication.presenter.NewsView
+import com.athulvs987.myapplication.ui.adapter.NewsAdapter
+import com.athulvs987.myapplication.utils.Constance
+import com.google.android.material.snackbar.Snackbar
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 
-/**
- * A simple [Fragment] subclass.
- * Use the [NewsFragment.newInstance] factory method to
- * create an instance of this fragment.
- */
-class NewsFragment : Fragment() {
-    // TODO: Rename and change types of parameters
-    private var param1: String? = null
-    private var param2: String? = null
+class NewsFragment : Fragment(),NewsView {
+    private lateinit var binding: FragmentNewsBinding
+    private lateinit var errorBinding: LayoutErrorBinding
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        arguments?.let {
-            param1 = it.getString(ARG_PARAM1)
-            param2 = it.getString(ARG_PARAM2)
-        }
-    }
 
+    private var isLoading =false
+    private var isFullyLoaded=false
+
+    lateinit var adapter: NewsAdapter
+    lateinit var presenter: NewsPresenter
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
+    ): View {
         // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_news, container, false)
+      binding= FragmentNewsBinding.inflate(inflater,container,false)
+        errorBinding = LayoutErrorBinding.bind(binding.error.root)
+        val view =binding.root
+        return view
     }
 
-    companion object {
-        /**
-         * Use this factory method to create a new instance of
-         * this fragment using the provided parameters.
-         *
-         * @param param1 Parameter 1.
-         * @param param2 Parameter 2.
-         * @return A new instance of fragment NewsFragment.
-         */
-        // TODO: Rename and change types and number of parameters
-        @JvmStatic
-        fun newInstance(param1: String, param2: String) =
-            NewsFragment().apply {
-                arguments = Bundle().apply {
-                    putString(ARG_PARAM1, param1)
-                    putString(ARG_PARAM2, param2)
-                }
-            }
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        initPresenter()
+        initRecyclerView()
+        initViews()
     }
+
+    private fun initPresenter() {
+        presenter= NewsPresenter(this)
+        presenter.getNews()
+    }
+
+    private fun initRecyclerView() {
+        adapter = NewsAdapter{
+            val newsUrl =it.url
+            val customTab =CustomTabsIntent.Builder().build()
+            customTab.launchUrl(requireContext(), Uri.parse(newsUrl))
+        }
+        binding.recyclerNews.adapter =adapter
+        binding.recyclerNews.addOnScrollListener( object :OnScrollListener(){
+            override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+                super.onScrollStateChanged(recyclerView, newState)
+                if (!recyclerView.canScrollVertically(1)){
+                   if (!isLoading && !isFullyLoaded){
+                       presenter.getNextPage()
+                   }
+                }
+
+            }
+
+        })
+    }
+
+    private fun initViews() {
+        errorBinding.btnRetry.setOnClickListener {
+            presenter.getNews()
+        }
+        binding.swipeRefreshLayout2.setOnRefreshListener {
+            adapter.articles.clear()
+            adapter.notifyDataSetChanged()
+            presenter.refreshArticle()
+        }
+    }
+    override fun onDestroy() {
+        super.onDestroy()
+    }
+
+    override fun isLoading() {
+        isLoading=true
+        binding.swipeRefreshLayout2.isRefreshing = true
+    }
+
+    override fun articlesLoaded(articles: List<NewsResponce.Article>,totalArticles :Int?) {
+        isLoading =false
+        binding.swipeRefreshLayout2.isRefreshing = false
+        adapter.articles.addAll(articles)
+        adapter.notifyDataSetChanged()
+        if (adapter.articles.size >= totalArticles?:0){
+            isFullyLoaded=true
+    }
+    }
+
+    override fun error(error: String, isFirstRequest: Boolean) {
+        isLoading =false
+        if(isFirstRequest){
+            errorBinding.layoutError.visibility = VISIBLE
+            errorBinding.txtError.text=error
+        }else{
+            Snackbar.make(binding.root,error,Snackbar.LENGTH_LONG).setAction("RETRY"){
+                presenter.getNews()
+            }.show()
+        }
+    }
+
 }

@@ -18,4 +18,6 @@ interface NewsAPI {
         page : Int
     ): Call<NewsResponce>
 
+
+
 }

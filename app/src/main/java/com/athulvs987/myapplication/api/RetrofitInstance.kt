@@ -4,9 +4,10 @@ import com.athulvs987.myapplication.utils.Constance
 import okhttp3.logging.HttpLoggingInterceptor
 
 import okhttp3.OkHttpClient
-import retrofit.GsonConverterFactory
+
 import retrofit2.Converter
 import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.create
 
 class  RetrofitInstance {
@@ -19,7 +20,7 @@ class  RetrofitInstance {
                 .build()
             Retrofit.Builder()
                 .baseUrl(Constance.API_BASE_URL)
-                .addConverterFactory(GsonConverterFactory.create()as Converter.Factory)
+                .addConverterFactory(GsonConverterFactory.create())
                 .client(client)
                 .build()
 
@@ -29,8 +30,5 @@ class  RetrofitInstance {
         }
     }
 }
-
-
-
 
 
